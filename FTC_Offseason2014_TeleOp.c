@@ -18,14 +18,14 @@ task main()
 		getJoystickSettings(joystick);
 
 		//Joystick 1: Left motor
-		if (abs(joystick.joy1_y1) > 5) {
+		if (abs(joystick.joy1_y1) > dampen) {
 			motor[motorD] = joystick.joy1_y1;
 		} else {
 			motor[motorD] = 0;
 		}
 
 		//Joystick 2: Right motor
-		if (abs(joystick.joy1_y2) > 5) {
+		if (abs(joystick.joy1_y2) > dampen) {
 			motor[motorE] = joystick.joy1_y2;
 		} else {
 			motor[motorE] = 0;
