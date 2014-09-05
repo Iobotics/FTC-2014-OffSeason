@@ -12,7 +12,7 @@
 
 #include "JoystickDriver.c"
 
-#define deadband_size 5 //If the joystick isn't this far from 0, it's set to 0
+#define deadband_size 10 //If the joystick isn't this far from 0, it's set to 0
 #define motor_left motor[motorD]
 #define motor_right motor[motorE]
 #define motor_max 100
