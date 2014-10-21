@@ -18,6 +18,8 @@
 #define motor_max 100
 #define motor_min -100
 #define expFactor 1.037003976
+#define servo_down 128
+#define servo_up 0
 
 task main()
 {
@@ -39,6 +41,8 @@ task main()
 		} else {
 			_powerRight = -1 * (pow(expFactor, -1 * joystick.joy1_y2) - 1);
 		}
+
+		servo[servo1] = (joy1Btn(1) == 1) ? servo_down : servo_up;
 
 		//If any motor is within 5 units of 0, set it to 0
 		/* if (abs(_powerLeft) <= deadband_size) {
