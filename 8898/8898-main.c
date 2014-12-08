@@ -9,7 +9,7 @@
 #pragma config(Motor,  mtr_S1_C3_1,     motorLM,       tmotorTetrix, openLoop)
 #pragma config(Motor,  mtr_S1_C3_2,     motorLR,       tmotorTetrix, openLoop)
 #pragma config(Motor,  mtr_S1_C4_1,     motorIntake,   tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C4_2,     motor6bar,     tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C4_2,     motorArm,      tmotorTetrix, openLoop, reversed)
 #pragma config(Servo,  srvo_S2_C1_1,    servoHopper,          tServoStandard)
 #pragma config(Servo,  srvo_S2_C1_2,    servo2,               tServoNone)
 #pragma config(Servo,  srvo_S2_C1_3,    servo3,               tServoNone)
@@ -20,10 +20,82 @@
 
 #include "JoystickDriver.c"
 #include "lib\PowerScale.c"
+#include "lib\4211Lib_PID.h"
 
-long encoder6bar = 0;
+#define MOTOR_TICKS_PER_REV		1120
 
-void setDrivePower(int left, int right) {
+// ARM constants and state //
+#define ARM_GEAR_REDUCTION		8
+#define ARM_TICKS_TO_DEGREES 	(360.0 / (MOTOR_TICKS_PER_REV * ARM_GEAR_REDUCTION))
+#define ARM_MAX_DEGREES				100
+#define ARM_MIN_DEGREES				0
+#define ARM_MAX_POWER_UP			20
+#define ARM_MAX_POWER_DOWN    -20
+#define ARM_KP 1.0
+#define ARM_KI 0.0
+#define ARM_KD 0.0
+
+float _armDegrees, _armPIDOutput, _armPower;
+PIDRefrence _armPID;
+
+// HOPPER constants //
+#define HOPPER_SERVO_DEGREES	180
+#define HOPPER_MAX_DEGREES 		90
+#define HOPPER_MIN_DEGREES 		0
+
+// control function prototypes //
+void Drive_setPower(int left, int right);
+void Arm_setPosition(int degrees);
+void Intake_setPower(int power);
+void Hopper_setTilt(int degrees);
+
+void Robot_initialize() {
+	// initialize the arm //
+	nMotorEncoder[motorArm] = 0;
+	_armPID = addNewPID(ARM_KP, ARM_KI, ARM_KD, &_armDegrees, &_armPIDOutput);
+
+  // start PID //
+	setPIDTaskSettings(Hz_200, T3);
+	startTask(pidHandler);
+}
+
+task main() {
+	Robot_initialize();
+	waitForStart();
+
+	while(true) {
+		getJoystickSettings(joystick);
+		Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
+
+		_armDegrees = nMotorEncoder[motorArm] * ARM_TICKS_TO_DEGREES;
+		_armPower   = trim(_armPower, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
+		//motor[motorArm] = _armPower;
+
+		if(joy1Btn(6)) {
+			Arm_setPosition(60);
+	  } else if(joy1Btn(8)) {
+	  	Arm_setPosition(0);
+		}
+
+		if(joy1Btn(5)) {
+			Intake_setPower(100);
+		} else if(joy1Btn(7)) {
+			Intake_setPower(-100);
+		} else {
+			Intake_setPower(0);
+		}
+
+		if(joy1Btn(4)) {
+			Hopper_setTilt(20);
+		} else {
+			Hopper_setTilt(0);
+		}
+	}
+}
+
+void Drive_setPower(int left, int right) {
+	left  = trim(left,  100, -100);
+	right = trim(right, 100, -100);
 	motor[motorLF] = left;
 	motor[motorLM] = left;
 	motor[motorLR] = left;
@@ -32,35 +104,17 @@ void setDrivePower(int left, int right) {
 	motor[motorRR] = right;
 }
 
+void Arm_setPosition(int degrees) {
+	degrees = trim(degrees, ARM_MAX_DEGREES, ARM_MIN_DEGREES);
+	setPIDTarget(_armPID, degrees);
+}
 
-task main() {
+void Intake_setPower(int power) {
+	power = trim(power, 100, -100);
+	motor[motorIntake] = power;
+}
 
-	while(true) {
-		getJoystickSettings(joystick);
-		setDrivePower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
-
-		if(joy1Btn(6) == 1) {
-			motor[motor6bar] = 100;
-	  } else if(joy1Btn(8) == 1) {
-	  	motor[motor6bar] = -10;
-		} else {
-			motor[motor6bar] = 0;
-		}
-		encoder6bar = nMotorEncoder[motor6bar];
-
-		if(joy1Btn(5) == 1) {
-			motor[motorIntake] = 100;
-		} else if(joy1Btn(7) == 1) {
-			motor[motorIntake] = -100;
-		} else {
-			motor[motorIntake] = 0;
-		}
-
-		if(joy1Btn(4) == 1 && servo[servoHopper] < 255) {
-			servo[servoHopper] += 5;
-		} else if(joy1Btn(2) == 1 && servo[servoHopper] > 0) {
-			servo[servoHopper] -= 5;
-		}
-	}
-
+void Hopper_setTilt(int degrees) {
+	degrees = trim(degrees, HOPPER_MAX_DEGREES, HOPPER_MIN_DEGREES);
+	servo[servoHopper] = degrees * 255 / HOPPER_SERVO_DEGREES;
 }
