@@ -30,7 +30,7 @@
 #define ARM_MAX_DEGREES				100
 #define ARM_MIN_DEGREES				0
 #define ARM_MAX_POWER_UP			20
-#define ARM_MAX_POWER_DOWN    -20
+#define ARM_MAX_POWER_DOWN    -10
 #define ARM_KP 1.0
 #define ARM_KI 0.0
 #define ARM_KD 0.0
@@ -57,6 +57,7 @@ void Robot_initialize() {
   // start PID //
 	setPIDTaskSettings(Hz_200, T3);
 	startTask(pidHandler);
+	while(!isPIDTaskReady) { } // wait for PID task to start //
 }
 
 task main() {
