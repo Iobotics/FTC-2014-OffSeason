@@ -69,7 +69,7 @@ task main() {
 		Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
 
 		_armDegrees = nMotorEncoder[motorArm] * ARM_TICKS_TO_DEGREES;
-		_armPower   = trim(_armPower, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
+		_armPower   = trim(_armPIDOutput, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
 		//motor[motorArm] = _armPower;
 
 		if(joy1Btn(6)) {
