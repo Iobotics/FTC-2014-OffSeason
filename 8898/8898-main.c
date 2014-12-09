@@ -27,16 +27,16 @@
 // ARM constants and state //
 #define ARM_GEAR_REDUCTION		8
 #define ARM_TICKS_TO_DEGREES 	(360.0 / (MOTOR_TICKS_PER_REV * ARM_GEAR_REDUCTION))
-#define ARM_MAX_DEGREES				100
+#define ARM_MAX_DEGREES				118
 #define ARM_MIN_DEGREES				0
-#define ARM_MAX_POWER_UP			20
+#define ARM_MAX_POWER_UP			100
 #define ARM_MAX_POWER_DOWN    -10
-#define ARM_KP 1.0
-#define ARM_KI 0.0
-#define ARM_KD 0.0
+#define ARM_KP 	5.0
+#define ARM_KI 	0.0
+#define ARM_KD 	0.0
 
-float _armDegrees, _armPIDOutput, _armPower;
-PIDRefrence _armPID;
+float armDegrees, armPIDOutput, armPower;
+PIDRefrence armPID;
 
 // HOPPER constants //
 #define HOPPER_SERVO_DEGREES	180
@@ -52,7 +52,7 @@ void Hopper_setTilt(int degrees);
 void Robot_initialize() {
 	// initialize the arm //
 	nMotorEncoder[motorArm] = 0;
-	_armPID = addNewPID(ARM_KP, ARM_KI, ARM_KD, &_armDegrees, &_armPIDOutput);
+	armPID = addNewPID(ARM_KP, ARM_KI, ARM_KD, &armDegrees, &armPIDOutput);
 
   // start PID //
 	setPIDTaskSettings(Hz_200, T3);
@@ -62,29 +62,33 @@ void Robot_initialize() {
 
 task main() {
 	Robot_initialize();
-	waitForStart();
+	//waitForStart();
 
 	while(true) {
 		getJoystickSettings(joystick);
 		Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
 
-		_armDegrees = nMotorEncoder[motorArm] * ARM_TICKS_TO_DEGREES;
-		_armPower   = trim(_armPIDOutput, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
-		//motor[motorArm] = _armPower;
+		armDegrees = - nMotorEncoder[motorArm] * ARM_TICKS_TO_DEGREES;
+		armPower   = trim(armPIDOutput, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
+		motor[motorArm] = armPower;
 
 		if(joy1Btn(6)) {
 			Arm_setPosition(60);
+		} else if(joy1Btn(5)) {
+			Arm_setPosition(30);
+		} else if(joy1Btn(7)) {
+			Arm_setPosition(120)
 	  } else if(joy1Btn(8)) {
 	  	Arm_setPosition(0);
 		}
 
-		if(joy1Btn(5)) {
+		/*if(joy1Btn(5)) {
 			Intake_setPower(100);
 		} else if(joy1Btn(7)) {
 			Intake_setPower(-100);
 		} else {
 			Intake_setPower(0);
-		}
+		}*/
 
 		if(joy1Btn(4)) {
 			Hopper_setTilt(20);
@@ -107,7 +111,7 @@ void Drive_setPower(int left, int right) {
 
 void Arm_setPosition(int degrees) {
 	degrees = trim(degrees, ARM_MAX_DEGREES, ARM_MIN_DEGREES);
-	setPIDTarget(_armPID, degrees);
+	setPIDTarget(armPID, degrees);
 }
 
 void Intake_setPower(int power) {
