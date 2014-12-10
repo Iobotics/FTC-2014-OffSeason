@@ -37,13 +37,19 @@
 #define LIFT_CHAIN_PITCH_INCHES		0.25
 #define LIFT_CM_PER_REV						(LIFT_SPROCKET_TEETH * LIFT_CHAIN_PITCH_INCHES * 2.54)
 #define LIFT_TICKS_TO_CM 	    		(LIFT_STAGES * (LIFT_CM_PER_REV / MOTOR_TICKS_PER_REV))
-#define LIFT_MAX_CM						120
+#define LIFT_MAX_CM						130
 #define LIFT_MIN_CM						0
 #define LIFT_MAX_POWER_UP			20
 #define LIFT_MAX_POWER_DOWN   -10
 #define LIFT_KP 1.0
 #define LIFT_KI 0.0
 #define LIFT_KD 0.0
+
+#define LIFT_POSITION_FLOOR   0
+#define LIFT_POSITION_30CM    35
+#define LIFT_POSITION_60CM    65
+#define LIFT_POSITION_90CM    95
+#define LIFT_POSITION_120CM   125
 
 float _liftPosition, _liftPIDOutput, _liftPower;
 PIDRefrence _liftPID;
