@@ -2,16 +2,16 @@
 #pragma config(Hubs,  S2, HTServo,  none,     none,     none)
 #pragma config(Sensor, S1,     ,               sensorI2CMuxController)
 #pragma config(Sensor, S2,     ,               sensorI2CMuxController)
-#pragma config(Motor,  mtr_S1_C1_1,     motorRF,       tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C1_2,     motorRM,       tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C2_1,     motorRR,       tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C2_2,     motorLF,       tmotorTetrix, openLoop)
-#pragma config(Motor,  mtr_S1_C3_1,     motorLM,       tmotorTetrix, openLoop)
-#pragma config(Motor,  mtr_S1_C3_2,     motorLR,       tmotorTetrix, openLoop)
+#pragma config(Motor,  mtr_S1_C1_1,     motorDriveRF,  tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C1_2,     motorDriveRM,  tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C2_1,     motorDriveRR,  tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C2_2,     motorDriveLF,  tmotorTetrix, openLoop)
+#pragma config(Motor,  mtr_S1_C3_1,     motorDriveLM,  tmotorTetrix, openLoop)
+#pragma config(Motor,  mtr_S1_C3_2,     motorDriveLR,  tmotorTetrix, openLoop)
 #pragma config(Motor,  mtr_S1_C4_1,     motorIntake,   tmotorTetrix, openLoop, reversed)
 #pragma config(Motor,  mtr_S1_C4_2,     motorArm,      tmotorTetrix, openLoop, reversed)
 #pragma config(Servo,  srvo_S2_C1_1,    servoHopper,          tServoStandard)
-#pragma config(Servo,  srvo_S2_C1_2,    servo2,               tServoNone)
+#pragma config(Servo,  srvo_S2_C1_2,    servoLatch,           tServoStandard)
 #pragma config(Servo,  srvo_S2_C1_3,    servo3,               tServoNone)
 #pragma config(Servo,  srvo_S2_C1_4,    servo4,               tServoNone)
 #pragma config(Servo,  srvo_S2_C1_5,    servo5,               tServoNone)
@@ -22,6 +22,7 @@
 #include "lib\PowerScale.c"
 #include "lib\4211Lib_PID.h"
 
+// Neverest 40 Motor //
 #define MOTOR_TICKS_PER_REV		1120
 
 // ARM constants and state //
@@ -31,9 +32,15 @@
 #define ARM_MIN_DEGREES				0
 #define ARM_MAX_POWER_UP			100
 #define ARM_MAX_POWER_DOWN    -10
+
 #define ARM_KP 	5.0
 #define ARM_KI 	0.0
 #define ARM_KD 	0.0
+
+#define ARM_DEGREES_FLOOR  0
+#define ARM_DEGREES_30CM   20
+#define ARM_DEGREES_60CM   60
+#define ARM_DEGREES_90CM   110
 
 float armDegrees, armPIDOutput, armPower;
 PIDRefrence armPID;
@@ -63,6 +70,7 @@ void Robot_initialize() {
 task main() {
 	Robot_initialize();
 	//waitForStart();
+  Arm_setPosition(ARM_DEGREES_FLOOR);
 
 	while(true) {
 		getJoystickSettings(joystick);
@@ -73,13 +81,13 @@ task main() {
 		motor[motorArm] = armPower;
 
 		if(joy1Btn(6)) {
-			Arm_setPosition(60);
+			Arm_setPosition(ARM_DEGREES_30CM);
 		} else if(joy1Btn(5)) {
-			Arm_setPosition(30);
+			Arm_setPosition(ARM_DEGREES_90CM);
 		} else if(joy1Btn(7)) {
-			Arm_setPosition(120)
+			Arm_setPosition(ARM_DEGREES_120CM)
 	  } else if(joy1Btn(8)) {
-	  	Arm_setPosition(0);
+	  	Arm_setPosition(ARM_DEGREES_FLOOR);
 		}
 
 		/*if(joy1Btn(5)) {
@@ -101,12 +109,12 @@ task main() {
 void Drive_setPower(int left, int right) {
 	left  = trim(left,  100, -100);
 	right = trim(right, 100, -100);
-	motor[motorLF] = left;
-	motor[motorLM] = left;
-	motor[motorLR] = left;
-	motor[motorRF] = right;
-	motor[motorRM] = right;
-	motor[motorRR] = right;
+	motor[motorDriveLF] = left;
+	motor[motorDriveLM] = left;
+	motor[motorDriveLR] = left;
+	motor[motorDriveRF] = right;
+	motor[motorDriveRM] = right;
+	motor[motorDriveRR] = right;
 }
 
 void Arm_setPosition(int degrees) {
