@@ -80,28 +80,28 @@ task main() {
 		armPower   = trim(armPIDOutput, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
 		motor[motorArm] = armPower;
 
-		if(joy1Btn(6)) {
-			Arm_setPosition(ARM_DEGREES_30CM);
-		} else if(joy1Btn(5)) {
+		if(joy1Btn(4)) {
 			Arm_setPosition(ARM_DEGREES_90CM);
-		} else if(joy1Btn(7)) {
-			Arm_setPosition(ARM_DEGREES_120CM)
+		} else if(joy1Btn(1)) {
+			Arm_setPosition(ARM_DEGREES_60CM);
+		} else if(joy1Btn(2)) {
+			Arm_setPosition(ARM_DEGREES_30CM);
 	  } else if(joy1Btn(8)) {
 	  	Arm_setPosition(ARM_DEGREES_FLOOR);
 		}
 
-		/*if(joy1Btn(5)) {
+		if(joy1Btn(5)) {
 			Intake_setPower(100);
 		} else if(joy1Btn(7)) {
 			Intake_setPower(-100);
 		} else {
 			Intake_setPower(0);
-		}*/
+		}
 
-		if(joy1Btn(4)) {
-			Hopper_setTilt(20);
+		if(joy1Btn(6)) {
+			Hopper_setTilt(60);
 		} else {
-			Hopper_setTilt(0);
+			Hopper_setTilt(40);
 		}
 	}
 }
