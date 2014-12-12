@@ -39,17 +39,30 @@
 #define LIFT_TICKS_TO_CM 	    		(LIFT_STAGES * (LIFT_CM_PER_REV / MOTOR_TICKS_PER_REV))
 #define LIFT_MAX_CM						130
 #define LIFT_MIN_CM						0
-#define LIFT_MAX_POWER_UP			20
-#define LIFT_MAX_POWER_DOWN   -10
-#define LIFT_KP 1.0
-#define LIFT_KI 0.0
-#define LIFT_KD 0.0
+#define LIFT_MAX_POWER_UP			100
+#define LIFT_MAX_POWER_DOWN   -50
+#define LIFT_KP 	10.0
+#define LIFT_KI 	0.0
+#define LIFT_KD 	0.0
 
 #define LIFT_POSITION_FLOOR   0
 #define LIFT_POSITION_30CM    35
 #define LIFT_POSITION_60CM    65
 #define LIFT_POSITION_90CM    95
 #define LIFT_POSITION_120CM   125
+
+#define LIFT_INTAKE_THRESHOLD			20
+#define LIFT_DOCKING_THRESHOLD 		5
+#define LIFT_UNDOCKING_THRESHOLD	20
+
+typedef enum {
+	LiftState_Docked,
+	LiftState_Undocking_Wait,
+	LiftState_Undocking,
+	LiftState_Free,
+	LiftState_Docking
+} LiftState;
+LiftState liftState;
 
 float liftPosition, liftPIDOutput, liftPower;
 PIDRefrence liftPID;
@@ -61,25 +74,43 @@ PIDRefrence liftPID;
 #define INTAKE_TILT_MAX_VALUE 		  202
 #define INTAKE_TILT_MIN_VALUE 		  75
 
+#define INTAKE_RUN_DEGREES					40
+#define INTAKE_STOWED_DEGREES				0
+#define INTAKE_DOCKING_DEGREES			60
+
 // HOPPER constants //
 #define HOPPER_TILT_SERVO_DEGREES	  180
-#define HOPPER_TILT_MAX_DEGREES 		143
-#define HOPPER_TILT_MIN_DEGREES 		53
+#define HOPPER_TILT_MAX_DEGREES 		40
+#define HOPPER_TILT_MIN_DEGREES 		0
+#define HOPPER_TILT_MAX_VALUE_L			82
+#define HOPPER_TILT_MIN_VALUE_L			25
+#define HOPPER_TILT_MAX_VALUE_R			255
+#define HOPPER_TILT_MIN_VALUE_R			191
 #define HOPPER_RAMP_SERVO_DEGREES		180
 #define HOPPER_RAMP_MAX_DEGREES			90
 #define HOPPER_RAMP_MIN_DEGREES			0
-#define HOPPER_RAMP_MAX_VALUE			  235
-#define HOPPER_RAMP_MIN_VALUE			  108
+#define HOPPER_RAMP_MAX_VALUE			  160
+#define HOPPER_RAMP_MIN_VALUE			  27
+
+#define HOPPER_UNTILTED_DEGREES		0
+#define HOPPER_TILTED_DEGREES			40
+#define HOPPER_RAMP_DEGREES_DOWN	0
+#define HOPPER_RAMP_DEGREES_UP		90
+
 
 // control function prototypes //
 void Drive_setPower(int left, int right);
 void Lift_setPosition(int cm);
 void Intake_setTilt(int degrees);
 void Intake_setPower(int power);
-//void Hopper_setTilt(int degrees);
+void Hopper_setTilt(int degrees);
 void Hopper_setRamp(int degrees);
 
 void Robot_initialize() {
+	// set hopper servo change rate //
+	servoChangeRate[servoHopperTiltL] = 2;
+	servoChangeRate[servoHopperTiltR] = 2;
+
 	// initialize the lift //
 	nMotorEncoder[motorLiftT] = 0;
 	liftPID = addNewPID(LIFT_KP, LIFT_KI, LIFT_KD, &liftPosition, &liftPIDOutput);
@@ -88,53 +119,115 @@ void Robot_initialize() {
 	setPIDTaskSettings(Hz_200, T3);
 	startTask(pidHandler);
 	while(!isPIDTaskReady) { } // wait for PID task to start //
+
+	liftState = LiftState_Docked;
 }
 
 task main() {
 	Robot_initialize();
 	//waitForStart();
 
+	int liftCommand = -1;
+	unsigned long delayTimer = nSysTime;
 	while(true) {
 		getJoystickSettings(joystick);
-		//Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
+		Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
 
 		liftPosition = nMotorEncoder[motorLiftT] * LIFT_TICKS_TO_CM;
 		liftPower    = trim(liftPIDOutput, LIFT_MAX_POWER_UP, LIFT_MAX_POWER_DOWN);
-		//motor[motorLift1] = _liftPower;
-		//motor[motorLift2] = _liftPower;
+		motor[motorLiftT] = liftPower;
+		motor[motorLiftB] = liftPower;
 
-		if(joy1Btn(6)) {
-		  motor[motorLiftT] = 100;
-		  motor[motorLiftB] = 100;
-			//Lift_setPosition(60);
+		// check lift for command during static states //
+		if(liftState == LiftState_Docked || liftState == LiftState_Free) {
+			if(joy1Btn(3)) {
+				liftCommand = LIFT_POSITION_120CM;
+			} else if(joy1Btn(4)) {
+				liftCommand = LIFT_POSITION_90CM;
+			} else if(joy1Btn(1)) {
+				liftCommand = LIFT_POSITION_60CM;
+			} else if(joy1Btn(2)) {
+				liftCommand = LIFT_POSITION_30CM;
+	  	} else if(joy1Btn(8)) {
+	  		liftCommand = LIFT_POSITION_FLOOR;
+			} else {
+				liftCommand = -1;
+			}
+		}
+		// change based on lift state //
+		switch(liftState) {
+			case LiftState_Docked:
+				Hopper_setRamp(HOPPER_RAMP_DEGREES_DOWN);
+				Hopper_setTilt(HOPPER_UNTILTED_DEGREES);
+				if(joy1Btn(5)) {
+					Intake_setTilt(INTAKE_RUN_DEGREES);
+					Intake_setPower(100);
+				} else if(joy1Btn(7)) {
+					Intake_setTilt(INTAKE_RUN_DEGREES);
+					Intake_setPower(-100);
+				} else {
+					Intake_setTilt(INTAKE_STOWED_DEGREES);
+					Intake_setPower(0);
+				}
+				if(liftCommand > 0) {
+					delayTimer = nSysTime + 500;
+					liftState = LiftState_Undocking_Wait;
+				}
+				break;
+			case LiftState_Undocking_Wait:
+				// does not respond to commands //
+				Hopper_setRamp(HOPPER_RAMP_DEGREES_UP);
+				Hopper_setTilt(HOPPER_UNTILTED_DEGREES);
+				Intake_setTilt(INTAKE_RUN_DEGREES);
+				Intake_setPower(LIFT_INTAKE_THRESHOLD);
+				if(nSysTime > delayTimer) {
+					Lift_setPosition(liftCommand);
+					liftState = LiftState_Undocking;
+				}
+				break;
+			case LiftState_Undocking:
+				Intake_setTilt(INTAKE_DOCKING_DEGREES);
+				Intake_setPower(liftPosition < LIFT_INTAKE_THRESHOLD? 50: 0);
+				if(liftPosition > LIFT_UNDOCKING_THRESHOLD) {
+					liftState = LiftState_Free;
+				}
+				break;
+			case LiftState_Free:
+				Hopper_setRamp(HOPPER_RAMP_DEGREES_UP);
+				Hopper_setTilt(joy1Btn(6)? HOPPER_TILTED_DEGREES: HOPPER_UNTILTED_DEGREES);
+				Intake_setTilt(INTAKE_STOWED_DEGREES);
+				if(liftCommand == LIFT_POSITION_FLOOR) {
+					Lift_setPosition(LIFT_POSITION_FLOOR);
+					liftState = LiftState_Docking;
+				} else if(liftCommand > 0) {
+					Lift_setPosition(liftCommand);
+				}
+				break;
+			case LiftState_Docking:
+				Hopper_setRamp(HOPPER_RAMP_DEGREES_UP);
+				Hopper_setTilt(HOPPER_UNTILTED_DEGREES);
+				Intake_setTilt(INTAKE_DOCKING_DEGREES);
+				Intake_setPower(liftPosition < LIFT_INTAKE_THRESHOLD? -50: 0);
+				if(liftPosition < LIFT_DOCKING_THRESHOLD) {
+					liftState = LiftState_Docked;
+				}
+				break;
+		}
+
+		/*Hopper_setRamp(HOPPER_RAMP_DEGREES_UP);
+		Hopper_setTilt(HOPPER_UNTILTED_DEGREES);
+		Intake_setTilt(INTAKE_DOCKING_DEGREES);
+		if(joy1Btn(3)) {
+			Lift_setPosition(LIFT_POSITION_120CM);
+		} else if(joy1Btn(4)) {
+			Lift_setPosition(LIFT_POSITION_90CM);
+		} else if(joy1Btn(1)) {
+			Lift_setPosition(LIFT_POSITION_60CM);
+		} else if(joy1Btn(2)) {
+			Lift_setPosition(LIFT_POSITION_30CM);
 	  } else if(joy1Btn(8)) {
-	    motor[motorLiftT] = -50;
-	    motor[motorLiftB] = -50;
-	  	//Lift_setPosition(0);
-		} else {
-			motor[motorLiftT] = 0;
-			motor[motorLiftB] = 0;
-		}
-
-		if(joy1Btn(5)) {
-			Intake_setTilt(30);
-			Intake_setPower(100);
-		} else if(joy1Btn(7)) {
-			Intake_setTilt(30);
-			Intake_setPower(-100);
-		} else {
-			Intake_setTilt(0);
-			Intake_setPower(0);
-		}
-
-		servo[servoHopperTiltR] = 255 - joystick.joy1_y1;
-		servo[servoHopperTiltL] = 25 + joystick.joy1_y1;
-
-		if(joy1Btn(4)) {
-			Hopper_setRamp(90);
-		} else {
-			Hopper_setRamp(0);
-		}
+	  	Lift_setPosition(LIFT_POSITION_FLOOR);
+		}*/
 	}
 }
 
@@ -159,24 +252,24 @@ void Intake_setTilt(int degrees) {
 	int value = degrees * 255 / INTAKE_TILT_SERVO_DEGREES;
 	servo[servoIntakeTiltL] = INTAKE_TILT_MIN_VALUE + value;
 	servo[servoIntakeTiltR] = INTAKE_TILT_MAX_VALUE - value;
-
 }
 
 void Intake_setPower(int power) {
 	power = trim(power, 100, -100) * 127 / 100;
-	servo[servoIntakeRollerL] = 127 + power;
-	servo[servoIntakeRollerR] = 127 - power;
+	servo[servoIntakeRollerL] = 127 - power;
+	servo[servoIntakeRollerR] = 127 + power;
 }
 
-/*void Hopper_setTilt(int degrees) {
-	degrees = trim(degrees, HOPPER_TILT_MAX_DEGREES - HOPPER_TILT_MIN_DEGREES, 0) + HOPPER_TILT_MIN_DEGREES;
-	degrees *= 255 / HOPPER_TILT_SERVO_DEGREES;
-	servo[servoHopperTilt1] = degrees;
-	servo[servoHopperTilt2] = 127 - degrees;
-}*/
+void Hopper_setTilt(int degrees) {
+	degrees = trim(degrees, HOPPER_TILT_MAX_DEGREES, HOPPER_TILT_MIN_DEGREES);
+	int value = degrees * 255 / HOPPER_TILT_SERVO_DEGREES;
+	servo[servoHopperTiltL] = HOPPER_TILT_MAX_VALUE_L - value;
+	servo[servoHopperTiltR] = HOPPER_TILT_MIN_VALUE_R + value;
+
+}
 
 void Hopper_setRamp(int degrees) {
 	degrees = trim(degrees, HOPPER_RAMP_MAX_DEGREES, HOPPER_RAMP_MIN_DEGREES);
 	int value = degrees * 255 / HOPPER_RAMP_SERVO_DEGREES;
-	servo[servoRamp] = INTAKE_TILT_MIN_VALUE + value;
+	servo[servoRamp] = HOPPER_RAMP_MIN_VALUE + value;
 }
