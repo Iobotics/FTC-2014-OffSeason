@@ -38,9 +38,9 @@
 #define ARM_KD 	0.0
 
 #define ARM_DEGREES_FLOOR  0
-#define ARM_DEGREES_30CM   20
-#define ARM_DEGREES_60CM   60
-#define ARM_DEGREES_90CM   110
+#define ARM_DEGREES_30CM   45
+#define ARM_DEGREES_60CM   75
+#define ARM_DEGREES_90CM   115
 
 float armDegrees, armPIDOutput, armPower;
 PIDRefrence armPID;
@@ -93,7 +93,7 @@ task main() {
 		if(joy1Btn(5)) {
 			Intake_setPower(100);
 		} else if(joy1Btn(7)) {
-			Intake_setPower(-100);
+			Intake_setPower(-60);
 		} else {
 			Intake_setPower(0);
 		}
@@ -123,7 +123,7 @@ void Arm_setPosition(int degrees) {
 }
 
 void Intake_setPower(int power) {
-	power = trim(power, 100, -100);
+	power = trim(-power, 100, -100);
 	motor[motorIntake] = power;
 }
 
