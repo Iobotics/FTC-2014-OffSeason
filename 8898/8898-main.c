@@ -2,14 +2,14 @@
 #pragma config(Hubs,  S2, HTServo,  none,     none,     none)
 #pragma config(Sensor, S1,     ,               sensorI2CMuxController)
 #pragma config(Sensor, S2,     ,               sensorI2CMuxController)
-#pragma config(Motor,  mtr_S1_C1_1,     motorDriveRF,  tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C1_2,     motorDriveRM,  tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C2_1,     motorDriveRR,  tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C2_2,     motorDriveLF,  tmotorTetrix, openLoop)
-#pragma config(Motor,  mtr_S1_C3_1,     motorDriveLM,  tmotorTetrix, openLoop)
-#pragma config(Motor,  mtr_S1_C3_2,     motorDriveLR,  tmotorTetrix, openLoop)
-#pragma config(Motor,  mtr_S1_C4_1,     motorIntake,   tmotorTetrix, openLoop, reversed)
-#pragma config(Motor,  mtr_S1_C4_2,     motorArm,      tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C1_1,     motorDriveRR,  tmotorTetrix, openLoop)
+#pragma config(Motor,  mtr_S1_C1_2,     motorArm,      tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C2_1,     motorDriveRF,  tmotorTetrix, openLoop)
+#pragma config(Motor,  mtr_S1_C2_2,     motorDriveRM,  tmotorTetrix, openLoop)
+#pragma config(Motor,  mtr_S1_C3_1,     motorDriveLF,  tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C3_2,     motorDriveLM,  tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C4_1,     motorDriveLR,  tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C4_2,     motorIntake,   tmotorTetrix, openLoop, reversed)
 #pragma config(Servo,  srvo_S2_C1_1,    servoHopper,          tServoStandard)
 #pragma config(Servo,  srvo_S2_C1_2,    servoLatch,           tServoStandard)
 #pragma config(Servo,  srvo_S2_C1_3,    servo3,               tServoNone)
@@ -31,7 +31,7 @@
 #define ARM_MAX_DEGREES				118
 #define ARM_MIN_DEGREES				0
 #define ARM_MAX_POWER_UP			100
-#define ARM_MAX_POWER_DOWN    -10
+#define ARM_MAX_POWER_DOWN    -5
 
 #define ARM_KP 	5.0
 #define ARM_KI 	0.0
@@ -41,6 +41,9 @@
 #define ARM_DEGREES_30CM   45
 #define ARM_DEGREES_60CM   75
 #define ARM_DEGREES_90CM   115
+
+#define LATCH_DOWN	1
+#define LATCH_UP		213
 
 float armDegrees, armPIDOutput, armPower;
 PIDRefrence armPID;
@@ -65,6 +68,9 @@ void Robot_initialize() {
 	setPIDTaskSettings(Hz_200, T3);
 	startTask(pidHandler);
 	while(!isPIDTaskReady) { } // wait for PID task to start //
+
+	// initialize latch //
+	servo[servoLatch] = LATCH_UP;
 }
 
 task main() {
@@ -72,13 +78,15 @@ task main() {
 	//waitForStart();
   Arm_setPosition(ARM_DEGREES_FLOOR);
 
+  bool latchPressed = false;
 	while(true) {
 		getJoystickSettings(joystick);
 		Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
 
-		armDegrees = - nMotorEncoder[motorArm] * ARM_TICKS_TO_DEGREES;
+		armDegrees = nMotorEncoder[motorArm] * ARM_TICKS_TO_DEGREES;
 		armPower   = trim(armPIDOutput, ARM_MAX_POWER_UP, ARM_MAX_POWER_DOWN);
 		motor[motorArm] = armPower;
+		//motor[motorArm] = joystick.joy1_y1;
 
 		if(joy1Btn(4)) {
 			Arm_setPosition(ARM_DEGREES_90CM);
@@ -103,6 +111,14 @@ task main() {
 		} else {
 			Hopper_setTilt(40);
 		}
+
+		if(joy1Btn(3) && !latchPressed) {
+			servo[servoLatch] = ServoValue[servoLatch] == LATCH_DOWN? LATCH_UP: LATCH_DOWN;
+			latchPressed = true;
+		} else if(!joy1Btn(3)) {
+			latchPressed = false;
+		}
+		//servo[servoLatch] = 128 + joystick.joy1_y1;
 	}
 }
 

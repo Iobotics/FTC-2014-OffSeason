@@ -4,16 +4,16 @@
 #pragma config(Sensor, S2,     ,               sensorI2CMuxController)
 #pragma config(Motor,  mtr_S1_C2_1,     motorDriveLR,  tmotorTetrix, openLoop, reversed, driveLeft)
 #pragma config(Motor,  mtr_S1_C2_2,     motorDriveLM,  tmotorTetrix, openLoop, reversed, driveLeft)
-#pragma config(Motor,  mtr_S1_C3_1,     motorDriveRR,  tmotorTetrix, openLoop, driveRight)
-#pragma config(Motor,  mtr_S1_C3_2,     motorDriveLF,  tmotorTetrix, openLoop, reversed, driveLeft)
-#pragma config(Motor,  mtr_S2_C1_1,     motorLiftT,    tmotorTetrix, openLoop, reversed)
+#pragma config(Motor,  mtr_S1_C3_1,     motorDriveLF,  tmotorTetrix, openLoop, reversed, driveLeft)
+#pragma config(Motor,  mtr_S1_C3_2,     motorDriveRR,  tmotorTetrix, openLoop, driveRight)
+#pragma config(Motor,  mtr_S2_C1_1,     motorLiftT,    tmotorTetrix, openLoop)
 #pragma config(Motor,  mtr_S2_C1_2,     motorLiftB,    tmotorTetrix, openLoop)
 #pragma config(Motor,  mtr_S2_C2_1,     motorDriveRM,  tmotorTetrix, openLoop, driveRight)
 #pragma config(Motor,  mtr_S2_C2_2,     motorDriveRF,  tmotorTetrix, openLoop, driveRight)
 #pragma config(Servo,  srvo_S1_C1_1,    servoRamp,            tServoStandard)
 #pragma config(Servo,  srvo_S1_C1_2,    servoHopperTiltR,     tServoStandard)
 #pragma config(Servo,  srvo_S1_C1_3,    servoHopperTiltL,     tServoStandard)
-#pragma config(Servo,  srvo_S1_C1_4,    servo4,               tServoNone)
+#pragma config(Servo,  srvo_S1_C1_4,    servoLatch,           tServoStandard)
 #pragma config(Servo,  srvo_S1_C1_5,    servo5,               tServoNone)
 #pragma config(Servo,  srvo_S1_C1_6,    servo6,               tServoNone)
 #pragma config(Servo,  srvo_S1_C4_1,    servoIntakeTiltR,     tServoStandard)
@@ -97,6 +97,9 @@ PIDRefrence liftPID;
 #define HOPPER_RAMP_DEGREES_DOWN	0
 #define HOPPER_RAMP_DEGREES_UP		90
 
+// LATCH constants //
+#define LATCH_DOWN	1
+#define LATCH_UP		180
 
 // control function prototypes //
 void Drive_setPower(int left, int right);
@@ -121,6 +124,8 @@ void Robot_initialize() {
 	while(!isPIDTaskReady) { } // wait for PID task to start //
 
 	liftState = LiftState_Docked;
+
+	servo[servoLatch] = LATCH_UP;
 }
 
 task main() {
@@ -129,6 +134,7 @@ task main() {
 
 	int liftCommand = -1;
 	unsigned long delayTimer = nSysTime;
+	bool latchPressed = false;
 	while(true) {
 		getJoystickSettings(joystick);
 		Drive_setPower(getScaledPower(joystick.joy1_y1), getScaledPower(joystick.joy1_y2));
@@ -137,6 +143,8 @@ task main() {
 		liftPower    = trim(liftPIDOutput, LIFT_MAX_POWER_UP, LIFT_MAX_POWER_DOWN);
 		motor[motorLiftT] = liftPower;
 		motor[motorLiftB] = liftPower;
+		//motor[motorLiftT] = joystick.joy1_y1;
+		//motor[motorLiftB] = joystick.joy1_y1;
 
 		// check lift for command during static states //
 		if(liftState == LiftState_Docked || liftState == LiftState_Free) {
@@ -214,6 +222,12 @@ task main() {
 				break;
 		}
 
+		if(joy1Btn(10) && !latchPressed) {
+			servo[servoLatch] = ServoValue[servoLatch] == LATCH_DOWN? LATCH_UP: LATCH_DOWN;
+			latchPressed = true;
+		} else if(!joy1Btn(10)) {
+			latchPressed = false;
+		}
 		/*Hopper_setRamp(HOPPER_RAMP_DEGREES_UP);
 		Hopper_setTilt(HOPPER_UNTILTED_DEGREES);
 		Intake_setTilt(INTAKE_DOCKING_DEGREES);
