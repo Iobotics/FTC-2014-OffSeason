@@ -34,14 +34,16 @@
 #define encoder_left drive_left_1 //===NOTE: these might not be the motors that have encoders in the final
 #define encoder_right drive_right_1
 
+#include "JoystickDriver.c"
 
 
 
 //Spins a motor in a direction with low power to prevent gear backlash
-void preventBacklash(int *motor, bool direction) { //Direction: true = forward, false = backward
-*motor = direction ? spd_backlash : -1 * spd_backlash; //I don't know if this will work... I've not used
+/* NOTE: Use port, not motor name */
+void preventBacklash(tMotor index, bool direction) { //Direction: true = forward, false = backward
+	motor[index] = direction ? spd_backlash : -1 * spd_backlash; //I don't know if this will work... I've not used
 	wait1Msec(backlash_prevention_time);
-	*motor = 0;
+	motor[index] = 0;
 }
 
 void setMotors(int left, int right) {
@@ -115,6 +117,8 @@ task main()
 	clearTimer(T1); //Used to time autonomous as a whole
 
 	bool _auto_finished = false; //Can be used to end auto early
+
+	//waitForStart();
 
 	testMotor(1440);
 
